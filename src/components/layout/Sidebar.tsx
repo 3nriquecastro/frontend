@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Settings, LogOut, MessageSquare } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { clearAuth } from "@/lib/auth";
+import { EnthosLogo } from "@/components/ui/logo";
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -13,7 +14,11 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="h-screen w-64 bg-background border-r p-4 flex flex-col">
+    <div className="h-screen w-64 bg-[#E6F3F7] border-r p-4 flex flex-col">
+      <div className="flex items-center gap-2 mb-8 mt-2">
+        <EnthosLogo className="w-8 h-8" />
+        <span className="text-xl font-semibold text-gray-800">Enthos</span>
+      </div>
       <div className="flex-1 space-y-2">
         <Button
           variant={location.pathname === "/assistant" ? "secondary" : "ghost"}

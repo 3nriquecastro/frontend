@@ -23,26 +23,175 @@ import {
   Instagram,
   Globe,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Organization, BusinessHour, Service, Product } from "@/types/database";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  updateOrganization,
+  getBusinessHours,
+  updateBusinessHours,
+  getServices,
+  updateService,
+  createService,
+  deleteService,
+  getProducts,
+  updateProduct,
+  createProduct,
+  deleteProduct,
+} from "@/lib/api";
+
+const defaultService: Service = {
+  id: "",
+  organization_id: "",
+  name: "",
+  description: "",
+  category: "",
+  price: 0,
+  duration: 30,
+  is_active: true,
+  created_at: "",
+  updated_at: "",
+};
+
+const defaultProduct: Product = {
+  id: "",
+  organization_id: "",
+  name: "",
+  short_description: "",
+  category: "",
+  price: 0,
+  stock: 1,
+  is_active: true,
+  created_at: "",
+  updated_at: "",
+};
 
 export default function Settings() {
-  const [services, setServices] = useState([
-    { name: "", price: "", duration: "30" },
-  ]);
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [businessHours, setBusinessHours] = useState<BusinessHour[]>([]);
+  const [services, setServices] = useState<Service[]>([defaultService]);
+  const [products, setProducts] = useState<Product[]>([defaultProduct]);
 
-  const [products, setProducts] = useState([
-    { name: "", price: "", stock: "1", description: "" },
-  ]);
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Load organization data
+      // Note: You'll need to get the organization ID from your auth context
+      const orgId = "your-org-id";
+
+      const [hours, servicesData, productsData] = await Promise.all([
+        getBusinessHours(orgId),
+        getServices(orgId),
+        getProducts(orgId),
+      ]);
+
+      setBusinessHours(hours);
+      setServices(servicesData.length ? servicesData : [defaultService]);
+      setProducts(productsData.length ? productsData : [defaultProduct]);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to load settings",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveBusinessHours = async () => {
+    try {
+      setLoading(true);
+      await updateBusinessHours(organization?.id!, businessHours);
+      toast({
+        title: "Success",
+        description: "Business hours updated",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to update business hours",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveServices = async () => {
+    try {
+      setLoading(true);
+      // Update or create services
+      await Promise.all(
+        services.map((service) =>
+          service.id
+            ? updateService(service.id, service)
+            : createService({
+                ...service,
+                organization_id: organization?.id!,
+              }),
+        ),
+      );
+      toast({
+        title: "Success",
+        description: "Services updated",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to update services",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveProducts = async () => {
+    try {
+      setLoading(true);
+      // Update or create products
+      await Promise.all(
+        products.map((product) =>
+          product.id
+            ? updateProduct(product.id, product)
+            : createProduct({
+                ...product,
+                organization_id: organization?.id!,
+              }),
+        ),
+      );
+      toast({
+        title: "Success",
+        description: "Products updated",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to update products",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addService = () => {
-    setServices([...services, { name: "", price: "", duration: "30" }]);
+    setServices([...services, { ...defaultService }]);
   };
 
   const addProduct = () => {
-    setProducts([
-      ...products,
-      { name: "", price: "", stock: "1", description: "" },
-    ]);
+    setProducts([...products, { ...defaultProduct }]);
   };
 
   const removeService = (index: number) => {
@@ -176,26 +325,52 @@ export default function Settings() {
                   </div>
                 </div>
               ))}
-              <Button>Save Changes</Button>
+              <Button onClick={handleSaveBusinessHours}>Save Changes</Button>
             </Card>
           </TabsContent>
 
           <TabsContent value="services">
             <Card className="p-6 space-y-6">
               <div className="space-y-4">
-                {services.map((_, index) => (
+                {services.map((service, index) => (
                   <div key={index} className="flex gap-4 items-start">
                     <div className="flex-1 space-y-2">
                       <Label>Service Name</Label>
-                      <Input placeholder="e.g. Consultation" />
+                      <Input
+                        placeholder="e.g. Consultation"
+                        value={service.name}
+                        onChange={(e) => {
+                          const newServices = [...services];
+                          newServices[index].name = e.target.value;
+                          setServices(newServices);
+                        }}
+                      />
                     </div>
                     <div className="w-32 space-y-2">
                       <Label>Price</Label>
-                      <Input placeholder="$0.00" type="number" />
+                      <Input
+                        placeholder="0.00"
+                        type="number"
+                        value={service.price}
+                        onChange={(e) => {
+                          const newServices = [...services];
+                          newServices[index].price = Number(e.target.value);
+                          setServices(newServices);
+                        }}
+                      />
                     </div>
                     <div className="w-32 space-y-2">
                       <Label>Duration</Label>
-                      <Input placeholder="30" type="number" defaultValue={30} />
+                      <Input
+                        placeholder="30"
+                        type="number"
+                        value={service.duration}
+                        onChange={(e) => {
+                          const newServices = [...services];
+                          newServices[index].duration = Number(e.target.value);
+                          setServices(newServices);
+                        }}
+                      />
                     </div>
                     {services.length > 1 && (
                       <Button
@@ -218,27 +393,53 @@ export default function Settings() {
                   Add Service
                 </Button>
               </div>
-              <Button>Save Changes</Button>
+              <Button onClick={handleSaveServices}>Save Changes</Button>
             </Card>
           </TabsContent>
 
           <TabsContent value="products">
             <Card className="p-6 space-y-6">
               <div className="space-y-4">
-                {products.map((_, index) => (
+                {products.map((product, index) => (
                   <div key={index} className="space-y-4 p-4 border rounded-lg">
                     <div className="flex gap-4 items-start">
                       <div className="flex-1 space-y-2">
                         <Label>Product Name</Label>
-                        <Input placeholder="e.g. Face Cream" />
+                        <Input
+                          placeholder="e.g. Face Cream"
+                          value={product.name}
+                          onChange={(e) => {
+                            const newProducts = [...products];
+                            newProducts[index].name = e.target.value;
+                            setProducts(newProducts);
+                          }}
+                        />
                       </div>
                       <div className="w-32 space-y-2">
                         <Label>Price</Label>
-                        <Input placeholder="$0.00" type="number" />
+                        <Input
+                          placeholder="0.00"
+                          type="number"
+                          value={product.price}
+                          onChange={(e) => {
+                            const newProducts = [...products];
+                            newProducts[index].price = Number(e.target.value);
+                            setProducts(newProducts);
+                          }}
+                        />
                       </div>
                       <div className="w-32 space-y-2">
                         <Label>Stock</Label>
-                        <Input placeholder="1" type="number" defaultValue={1} />
+                        <Input
+                          placeholder="1"
+                          type="number"
+                          value={product.stock}
+                          onChange={(e) => {
+                            const newProducts = [...products];
+                            newProducts[index].stock = Number(e.target.value);
+                            setProducts(newProducts);
+                          }}
+                        />
                       </div>
                       {products.length > 1 && (
                         <Button
@@ -256,11 +457,24 @@ export default function Settings() {
                       <Textarea
                         placeholder="Product description..."
                         className="h-20"
+                        value={product.short_description}
+                        onChange={(e) => {
+                          const newProducts = [...products];
+                          newProducts[index].short_description = e.target.value;
+                          setProducts(newProducts);
+                        }}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Category</Label>
-                      <Select>
+                      <Select
+                        value={product.category}
+                        onValueChange={(value) => {
+                          const newProducts = [...products];
+                          newProducts[index].category = value;
+                          setProducts(newProducts);
+                        }}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
@@ -283,7 +497,7 @@ export default function Settings() {
                   Add Product
                 </Button>
               </div>
-              <Button>Save Changes</Button>
+              <Button onClick={handleSaveProducts}>Save Changes</Button>
             </Card>
           </TabsContent>
 

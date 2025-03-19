@@ -6,7 +6,7 @@ import {
   useNavigate,
   useLocation,
 } from "react-router-dom";
-import Hero from "./components/landing/Hero";
+import NewLanding from "./pages/NewLanding";
 import AuthModal from "./components/auth/AuthModal";
 import Dashboard from "./pages/dashboard";
 import Assistant from "./pages/assistant";
@@ -30,17 +30,15 @@ function App() {
 
   return (
     <Suspense fallback={<p>Loading...</p>}>
-      <>
-        <Routes>
-          <Route path="/" element={<Hero />} />
-          <Route path="/auth" element={<AuthModal />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/assistant" element={<Assistant />} />
-          <Route path="/settings" element={<Settings />} />
-        </Routes>
-        {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
-      </>
+      <Routes>
+        <Route path="/" element={<NewLanding />} />
+        <Route path="/auth" element={<AuthModal />} />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/assistant" element={<Assistant />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+      {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
     </Suspense>
   );
 }

@@ -1,6 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+// For development without Supabase, use a mock client
+const mockClient = {
+  from: () => ({
+    select: () => mockClient.from(),
+    insert: () => mockClient.from(),
+    update: () => mockClient.from(),
+    delete: () => mockClient.from(),
+    eq: () => mockClient.from(),
+    single: () => Promise.resolve({ data: null, error: null }),
+    then: () => Promise.resolve({ data: [], error: null }),
+  }),
+};
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Use mock client by default in development
+export const supabase = mockClient;
