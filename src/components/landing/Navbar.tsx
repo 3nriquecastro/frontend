@@ -59,13 +59,6 @@ export default function Navbar() {
           {/* CTA Buttons - Desktop */}
           <div className="hidden md:flex items-center gap-2 sm:gap-4">
             <Button
-              variant="ghost"
-              className="text-[#1F2937] hover:bg-[#E6F3F7]/80 font-medium text-sm sm:text-base"
-              onClick={() => navigate("/auth?mode=signin")}
-            >
-              Sign In
-            </Button>
-            <Button
               className="bg-[#1F2937] hover:bg-[#374151] text-white text-sm sm:text-base"
               onClick={() => navigate("/auth?mode=register")}
             >

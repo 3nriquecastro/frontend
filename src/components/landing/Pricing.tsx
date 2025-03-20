@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 const plans = [
   {
     name: "Starter",
-    price: "$99",
+    price: "$199",
     description: "Perfect for small businesses just getting started",
     features: [
       "AI Assistant (business hours)",
@@ -20,7 +20,7 @@ const plans = [
   },
   {
     name: "Professional",
-    price: "$199",
+    price: "$399",
     description: "Ideal for growing businesses with regular clients",
     features: [
       "24/7 AI Assistant",
@@ -137,26 +137,6 @@ export default function Pricing() {
             </motion.div>
           ))}
         </div>
-
-        {/* Additional Info */}
-        <motion.div
-          className="mt-16 text-center max-w-3xl mx-auto"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-        >
-          <p className="text-[#4B5563]">
-            Join our waitlist to be notified when we launch. Early access
-            members receive a 30% discount.
-            <br />
-            Need a custom solution?{" "}
-            <a href="#" className="text-[#1F2937] font-medium hover:underline">
-              Contact our sales team
-            </a>
-            .
-          </p>
-        </motion.div>
       </div>
     </div>
   );

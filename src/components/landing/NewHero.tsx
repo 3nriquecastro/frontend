@@ -100,30 +100,6 @@ export default function NewHero() {
                 </p>
               </form>
             </motion.div>
-
-            {/* CTA Buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-8"
-            >
-              <Button
-                size="lg"
-                className="text-lg px-8 bg-white hover:bg-gray-100 text-[#1F2937] border border-gray-200 w-full sm:w-auto"
-                onClick={() => window.open("https://calendly.com/enthos/demo")}
-              >
-                See Live Demo
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="text-lg px-8 bg-transparent border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white font-medium w-full sm:w-auto"
-                onClick={() => navigate("/auth?mode=register")}
-              >
-                Learn More <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </motion.div>
           </div>
 
           {/* Key Benefits */}

@@ -135,7 +135,6 @@ const scenarios = [
   },
 ];
 
-// Improved message display component with natural typing animation
 const MessageDisplay = ({
   message,
   onComplete,
@@ -151,22 +150,21 @@ const MessageDisplay = ({
   useEffect(() => {
     if (!isTyping) {
       setDisplayedText(message);
+      onComplete();
       return;
     }
 
     if (currentIndex < message.length) {
-      // Variable typing speed based on character type for more natural effect
       let delay = 30;
       const currentChar = message[currentIndex];
 
-      // Slower for punctuation and line breaks
+      // Natural typing speed variations based on punctuation
       if ([".", ",", "!", "?", ":", ";", "\n"].includes(currentChar)) {
-        delay = 200; // Pause longer at punctuation
+        delay = 300; // Longer pause at punctuation
       } else if (currentChar === " ") {
-        delay = 50; // Slight pause at spaces
+        delay = 80; // Slight pause at spaces
       } else {
-        // Random typing speed for letters
-        delay = Math.random() * 25 + 15;
+        delay = Math.random() * 30 + 20; // Random variation for natural feel
       }
 
       const timer = setTimeout(() => {
@@ -176,7 +174,11 @@ const MessageDisplay = ({
 
       return () => clearTimeout(timer);
     } else {
-      onComplete();
+      // Small delay after typing completes before calling onComplete
+      const completionTimer = setTimeout(() => {
+        onComplete();
+      }, 300);
+      return () => clearTimeout(completionTimer);
     }
   }, [message, isTyping, currentIndex, onComplete]);
 
@@ -193,6 +195,14 @@ const MessageDisplay = ({
 };
 
 export default function AgentDemo() {
+  // Define cleanupTimers before it's used in any hooks
+  const cleanupTimers = useCallback(() => {
+    if (taskTimeoutRef.current) clearTimeout(taskTimeoutRef.current);
+    if (scenarioTimeoutRef.current) clearTimeout(scenarioTimeoutRef.current);
+    scrollTimeoutsRef.current.forEach(clearTimeout);
+    scrollTimeoutsRef.current = [];
+  }, []);
+
   const [activeScenario, setActiveScenario] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const [taskIndex, setTaskIndex] = useState(0);
@@ -206,21 +216,6 @@ export default function AgentDemo() {
   const scenarioTimeoutRef = useRef<number | null>(null);
   const scrollTimeoutsRef = useRef<number[]>([]);
 
-  // Cleanup function for all timers
-  const cleanupTimers = useCallback(() => {
-    if (taskTimeoutRef.current) {
-      clearTimeout(taskTimeoutRef.current);
-      taskTimeoutRef.current = null;
-    }
-    if (scenarioTimeoutRef.current) {
-      clearTimeout(scenarioTimeoutRef.current);
-      scenarioTimeoutRef.current = null;
-    }
-    scrollTimeoutsRef.current.forEach(clearTimeout);
-    scrollTimeoutsRef.current = [];
-  }, []);
-
-  // Handle component mount/unmount
   useEffect(() => {
     setIsMounted(true);
     return () => {
@@ -229,25 +224,18 @@ export default function AgentDemo() {
     };
   }, [cleanupTimers]);
 
-  // Scroll to bottom function with improved reliability
   const scrollToBottom = useCallback(() => {
     if (!chatContainerRef.current || !autoScrollEnabled) return;
 
     const container = chatContainerRef.current;
     const scrollToPosition = container.scrollHeight - container.clientHeight;
 
-    // Immediate scroll to ensure visibility
-    container.scrollTop = scrollToPosition;
+    // Smooth scroll
+    container.scrollTo({ top: scrollToPosition, behavior: "smooth" });
 
-    // Then smooth scroll for animation effect
-    container.scrollTo({
-      top: scrollToPosition,
-      behavior: "smooth",
-    });
-
-    // Fallback direct scroll in case smooth scroll fails
+    // Fallback direct scroll after a short delay in case smooth scroll fails
     const directScrollTimeout = setTimeout(() => {
-      if (container.scrollTop < scrollToPosition - 20) {
+      if (container && container.scrollTop < scrollToPosition - 20) {
         container.scrollTop = scrollToPosition;
       }
     }, 300);
@@ -255,26 +243,19 @@ export default function AgentDemo() {
     scrollTimeoutsRef.current.push(directScrollTimeout);
   }, [autoScrollEnabled]);
 
-  // Set up MutationObserver to detect content changes and scroll
+  // Set up mutation observer to detect content changes and scroll accordingly
   useEffect(() => {
     if (!chatContainerRef.current) return;
 
     const container = chatContainerRef.current;
-    const observer = new MutationObserver((mutations) => {
+    const observer = new MutationObserver(() => {
       if (autoScrollEnabled) {
-        // Check if the mutations actually added content that would affect height
-        const hasRelevantChanges = mutations.some((mutation) => {
-          return (
-            mutation.type === "childList" ||
-            mutation.type === "characterData" ||
-            (mutation.type === "attributes" &&
-              mutation.attributeName === "style")
-          );
+        // Schedule multiple scroll attempts with increasing delays
+        // to ensure scrolling happens after content is fully rendered
+        [10, 50, 150, 300].forEach((delay) => {
+          const timeoutId = setTimeout(scrollToBottom, delay);
+          scrollTimeoutsRef.current.push(timeoutId);
         });
-
-        if (hasRelevantChanges) {
-          scrollToBottom();
-        }
       }
     });
 
@@ -283,27 +264,20 @@ export default function AgentDemo() {
       subtree: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ["style", "class"],
     });
 
     return () => observer.disconnect();
   }, [scrollToBottom, autoScrollEnabled]);
 
-  // Additional scroll triggers with multiple attempts
+  // Ensure scrolling happens after any state changes that affect content
   useEffect(() => {
     if (!isMounted) return;
 
-    // Clear previous scroll timeouts
-    scrollTimeoutsRef.current.forEach(clearTimeout);
-    scrollTimeoutsRef.current = [];
-
-    // Schedule multiple scroll attempts with increasing delays
-    const delays = [10, 50, 150, 300, 500, 800, 1200];
+    const delays = [10, 50, 150, 300, 500];
     const newTimeouts = delays.map((delay) =>
       setTimeout(scrollToBottom, delay),
     );
-
-    scrollTimeoutsRef.current = newTimeouts;
+    scrollTimeoutsRef.current.push(...newTimeouts);
 
     return () => {
       scrollTimeoutsRef.current.forEach(clearTimeout);
@@ -319,34 +293,17 @@ export default function AgentDemo() {
     isMounted,
   ]);
 
-  // Handle typing completion
   const handleTypingComplete = useCallback(() => {
-    setIsTyping(false);
-    scrollToBottom();
+    requestAnimationFrame(() => {
+      setIsTyping(false);
+      scrollToBottom();
+    });
   }, [scrollToBottom]);
 
-  // Progress through tasks and steps
+  // Progress through tasks and scenarios
   useEffect(() => {
     if (!isMounted || isTyping || isTransitioning) return;
 
-    // Validate scenario and step indexes
-    if (
-      activeScenario >= scenarios.length ||
-      stepIndex >= scenarios[activeScenario].steps.length
-    ) {
-      // Reset to valid indexes
-      setActiveScenario(0);
-      setStepIndex(0);
-      setTaskIndex(0);
-      return;
-    }
-
-    // Clear any existing timeout
-    if (taskTimeoutRef.current) {
-      clearTimeout(taskTimeoutRef.current);
-    }
-
-    // Function to progress tasks with natural timing
     const progressTasks = () => {
       taskTimeoutRef.current = window.setTimeout(() => {
         setTaskIndex((current) => {
@@ -355,19 +312,15 @@ export default function AgentDemo() {
           const maxTasks = currentStep.analysis.tasks.length;
 
           if (current >= maxTasks - 1) {
-            // All tasks completed, prepare for next step or scenario
+            // All tasks for this step are complete, move to next step or scenario
             scenarioTimeoutRef.current = window.setTimeout(() => {
               setIsTransitioning(true);
-              scrollToBottom(); // Ensure scroll before transition
+              scrollToBottom();
 
               setTimeout(() => {
                 setStepIndex((currentStep) => {
-                  // Check if we're at the last step of the current scenario
-                  if (
-                    currentStep >=
-                    scenarios[activeScenario].steps.length - 1
-                  ) {
-                    // Move to next scenario or loop back to first
+                  if (currentStep >= currentScenario.steps.length - 1) {
+                    // End of scenario, move to next scenario or loop back
                     setActiveScenario((currentScenario) =>
                       currentScenario === scenarios.length - 1
                         ? 0
@@ -386,26 +339,22 @@ export default function AgentDemo() {
                     return currentStep + 1;
                   }
                 });
-                scrollToBottom(); // Ensure scroll after transition
-              }, 1000); // Transition delay
-            }, 2000); // Pause between steps
+                scrollToBottom();
+              }, 1500); // Increased wait time for better readability
+            }, 2000);
 
             return current;
           }
 
-          // Schedule the next task progression
+          // Move to next task with natural timing
           const nextTaskDelay = 1500 + Math.random() * 500;
           setTimeout(progressTasks, nextTaskDelay);
-
-          // Move to next task
           return current + 1;
         });
-      }, 1000); // Initial task delay
+      }, 1000);
     };
 
-    // Start the task progression
     progressTasks();
-
     return cleanupTimers;
   }, [
     isMounted,
@@ -417,10 +366,8 @@ export default function AgentDemo() {
     scrollToBottom,
   ]);
 
-  // Early return if not mounted
   if (!isMounted) return null;
 
-  // Ensure we have valid scenario and step indexes
   const safeActiveScenario = Math.min(activeScenario, scenarios.length - 1);
   const currentScenario = scenarios[safeActiveScenario];
   const safeStepIndex = Math.min(stepIndex, currentScenario.steps.length - 1);
@@ -434,7 +381,6 @@ export default function AgentDemo() {
       >
         {/* Left Panel - Conversation */}
         <div className="rounded-lg border border-gray-200 bg-[#E6F3F7] p-4 overflow-hidden flex flex-col">
-          {/* Chat Header */}
           <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-200">
             <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
               <Sparkles className="w-5 h-5 text-[#1F2937]" />
@@ -443,23 +389,17 @@ export default function AgentDemo() {
               <h3 className="text-sm font-medium text-[#1F2937]">Enthos AI</h3>
               <p className="text-xs text-[#4B5563]">{currentScenario.name}</p>
             </div>
-            <motion.div
-              className="ml-auto flex items-center gap-1"
-              animate={{ opacity: [1, 0.6, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
+            <div className="ml-auto flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
               <span className="text-xs text-green-600 font-medium">Active</span>
-            </motion.div>
+            </div>
           </div>
 
-          {/* Chat Messages - Fixed height with auto scroll */}
           <div
             ref={chatContainerRef}
             className="flex-1 overflow-y-auto pr-1 space-y-4 h-[350px] custom-scrollbar"
             style={{ scrollBehavior: "smooth" }}
             onScroll={(e) => {
-              // Disable auto-scroll if user manually scrolls up
               const target = e.target as HTMLDivElement;
               const isScrolledToBottom =
                 target.scrollHeight - target.scrollTop <=
@@ -467,7 +407,7 @@ export default function AgentDemo() {
               setAutoScrollEnabled(isScrolledToBottom);
             }}
           >
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" initial={false}>
               {currentScenario.steps
                 .slice(0, stepIndex + 1)
                 .map((step, index) => (
@@ -476,11 +416,14 @@ export default function AgentDemo() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    transition={{
+                      duration: 0.4,
+                      ease: "easeOut",
+                    }}
                     className={`flex ${step.type === "customer" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`rounded-lg p-4 max-w-[90%] ${step.type === "customer" ? "bg-white text-[#1F2937] shadow-sm" : "bg-[#1F2937] text-white shadow-md"} ${index === stepIndex ? "highlight-new" : ""}`}
+                      className={`rounded-lg p-4 max-w-[90%] ${step.type === "customer" ? "bg-white text-[#1F2937] shadow-sm" : "bg-[#1F2937] text-white shadow-md"}`}
                       style={{ wordBreak: "break-word" }}
                     >
                       <MessageDisplay
@@ -490,7 +433,7 @@ export default function AgentDemo() {
                           index === stepIndex && step.typing && isTyping
                         }
                       />
-                      <div className="mt-2 text-xs text-right flex items-center justify-end gap-1">
+                      <div className="mt-2 text-xs text-right">
                         <span
                           className={
                             step.type === "customer"
@@ -501,7 +444,7 @@ export default function AgentDemo() {
                           {step.type === "customer" ? "You" : "Enthos AI"}
                         </span>
                         {step.type === "agent" && (
-                          <Sparkles className="w-3 h-3 text-yellow-300" />
+                          <span className="ml-1 text-yellow-300">✨</span>
                         )}
                       </div>
                     </div>
@@ -509,7 +452,6 @@ export default function AgentDemo() {
                 ))}
             </AnimatePresence>
 
-            {/* Typing indicator when transitioning between steps */}
             {isTransitioning && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -563,7 +505,7 @@ export default function AgentDemo() {
               </motion.div>
             )}
 
-            {/* Auto-scroll indicator - shows when user has scrolled up */}
+            {/* New messages indicator when scrolled up */}
             {!autoScrollEnabled && (
               <div
                 className="sticky bottom-0 w-full flex justify-center z-10"
@@ -578,14 +520,12 @@ export default function AgentDemo() {
               </div>
             )}
 
-            {/* Extra space at bottom to improve scrolling */}
             <div className="h-4"></div>
           </div>
         </div>
 
         {/* Right Panel - Analysis */}
         <div className="rounded-lg border border-gray-200 bg-white p-4 overflow-hidden flex flex-col">
-          {/* Analysis Header */}
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <Brain className="w-4 h-4 text-[#1F2937]" />
@@ -593,19 +533,14 @@ export default function AgentDemo() {
                 AI Processing
               </span>
             </div>
-            <motion.div
-              animate={{ opacity: [1, 0.5, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="flex items-center gap-1"
-            >
+            <div className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
               <span className="text-xs text-blue-600 font-medium">
                 Real-time
               </span>
-            </motion.div>
+            </div>
           </div>
 
-          {/* Analysis Content */}
           <AnimatePresence mode="wait">
             <motion.div
               key={`${activeScenario}-${stepIndex}`}
@@ -615,76 +550,38 @@ export default function AgentDemo() {
               transition={{ duration: 0.5 }}
               className="space-y-5 flex-1 overflow-y-auto h-[350px] pr-1 custom-scrollbar"
             >
-              {/* Current Action */}
-              <motion.div
-                className="p-4 rounded-lg border border-[#1F2937]/20 bg-[#E6F3F7]"
-                animate={{
-                  boxShadow: [
-                    "0 0 0 rgba(31, 41, 55, 0.1)",
-                    "0 0 8px rgba(31, 41, 55, 0.2)",
-                    "0 0 0 rgba(31, 41, 55, 0.1)",
-                  ],
-                  borderColor: [
-                    "rgba(31, 41, 55, 0.2)",
-                    "rgba(31, 41, 55, 0.4)",
-                    "rgba(31, 41, 55, 0.2)",
-                  ],
-                }}
-                transition={{ duration: 3, repeat: Infinity }}
-              >
+              <div className="p-4 rounded-lg border border-[#1F2937]/20 bg-[#E6F3F7]">
                 <div className="text-xs text-[#4B5563] mb-2">
                   Current Action
                 </div>
                 <div className="text-sm text-[#1F2937] font-medium flex items-center gap-2">
-                  <motion.div
-                    animate={{ scale: [1, 1.05, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <Sparkles className="w-4 h-4 text-blue-500" />
-                  </motion.div>
+                  <Sparkles className="w-4 h-4 text-blue-500" />
                   {currentStep.analysis.action}
                 </div>
-              </motion.div>
+              </div>
 
-              {/* Task List */}
               <div className="space-y-3">
                 <h3 className="text-xs font-medium text-[#4B5563] uppercase tracking-wider">
-                  Processing Tasks
+                  PROCESSING TASKS
                 </h3>
                 {currentStep.analysis.tasks.map((task, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{
-                      opacity: i <= taskIndex ? 1 : 0.4,
+                      opacity: 1,
                       x: 0,
                       transition: {
-                        delay: i * 0.5,
-                        duration: 0.6,
+                        delay: i * 0.2,
+                        duration: 0.4,
                         ease: "easeOut",
                       },
                     }}
                     className="flex items-center gap-3 p-3 rounded-md hover:bg-gray-50 transition-all duration-300 border border-transparent hover:border-gray-100"
                   >
-                    <motion.div
-                      animate={
-                        i === taskIndex
-                          ? {
-                              scale: [1, 1.15, 1],
-                              color: ["#1F2937", "#2563EB", "#1F2937"],
-                            }
-                          : {}
-                      }
-                      transition={{
-                        duration: 2,
-                        repeat: i === taskIndex ? Infinity : 0,
-                      }}
-                      className="flex-shrink-0"
-                    >
-                      <task.icon
-                        className={`w-5 h-5 ${i <= taskIndex ? "text-blue-600" : "text-gray-400"}`}
-                      />
-                    </motion.div>
+                    <task.icon
+                      className={`w-5 h-5 ${i <= taskIndex ? "text-blue-600" : "text-gray-400"}`}
+                    />
                     <span
                       className={`text-sm ${i <= taskIndex ? "text-[#1F2937] font-medium" : "text-gray-400"}`}
                     >
@@ -704,7 +601,6 @@ export default function AgentDemo() {
                 ))}
               </div>
 
-              {/* Progress Indicator */}
               <div className="mt-6 pt-4 border-t border-gray-100">
                 <div className="flex justify-between items-center text-xs text-gray-500 mb-2">
                   <span>
@@ -726,17 +622,15 @@ export default function AgentDemo() {
                 </div>
               </div>
 
-              {/* Scenario Info */}
               <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <h3 className="text-xs font-medium text-[#4B5563] uppercase tracking-wider mb-2">
-                  Scenario Details
+                  SCENARIO DETAILS
                 </h3>
                 <div className="text-sm text-[#1F2937]">
                   <p>
-                    This demo shows how Enthos AI handles{" "}
-                    {currentScenario.name.toLowerCase()} interactions
-                    autonomously, managing the entire conversation flow while
-                    processing multiple tasks in the background.
+                    This demo shows how Enthos AI handles new client experience
+                    interactions autonomously, managing the entire conversation
+                    flow while processing multiple tasks in the background.
                   </p>
                 </div>
               </div>
@@ -745,7 +639,6 @@ export default function AgentDemo() {
         </div>
       </div>
 
-      {/* Add custom scrollbar styles */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
@@ -764,19 +657,6 @@ export default function AgentDemo() {
           scrollbar-width: thin;
           scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
           overflow-anchor: auto;
-        }
-
-        .highlight-new {
-          animation: highlightFade 2s ease-out forwards;
-        }
-
-        @keyframes highlightFade {
-          0% {
-            background-color: rgba(59, 130, 246, 0.1);
-          }
-          100% {
-            background-color: transparent;
-          }
         }
       `}</style>
     </div>
