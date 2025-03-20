@@ -329,6 +329,18 @@ export default function AgentDemo() {
   useEffect(() => {
     if (!isMounted || isTyping || isTransitioning) return;
 
+    // Validate scenario and step indexes
+    if (
+      activeScenario >= scenarios.length ||
+      stepIndex >= scenarios[activeScenario].steps.length
+    ) {
+      // Reset to valid indexes
+      setActiveScenario(0);
+      setStepIndex(0);
+      setTaskIndex(0);
+      return;
+    }
+
     // Clear any existing timeout
     if (taskTimeoutRef.current) {
       clearTimeout(taskTimeoutRef.current);
@@ -408,8 +420,11 @@ export default function AgentDemo() {
   // Early return if not mounted
   if (!isMounted) return null;
 
-  const currentScenario = scenarios[activeScenario];
-  const currentStep = currentScenario.steps[stepIndex];
+  // Ensure we have valid scenario and step indexes
+  const safeActiveScenario = Math.min(activeScenario, scenarios.length - 1);
+  const currentScenario = scenarios[safeActiveScenario];
+  const safeStepIndex = Math.min(stepIndex, currentScenario.steps.length - 1);
+  const currentStep = currentScenario.steps[safeStepIndex];
 
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-xl border border-gray-200 overflow-hidden p-4 sm:p-6 shadow-lg hover:shadow-xl transition-all duration-300">
